@@ -14,17 +14,21 @@ source "$HOME/shell-helpers/mux/mux.sh"
 source "$HOME/shell-helpers/mnt/mnt.sh"
 ```
 
-If you use [Oh My Bash](https://github.com/ohmybash/oh-my-bash) or [Oh My Zsh](https://github.com/ohmyzsh/ohmyzsh), you can clone the repository into the framework's default custom directory instead:
+For [Oh My Bash](https://github.com/ohmybash/oh-my-bash) or [Oh My Zsh](https://github.com/ohmyzsh/ohmyzsh), clone the repository as a custom plugin instead:
 
 ```sh
 # Oh My Bash
-git clone https://github.com/leonbeon/shell-helpers.git "$HOME/.oh-my-bash/custom/shell-helpers"
+git clone https://github.com/leonbeon/shell-helpers.git "$HOME/.oh-my-bash/custom/plugins/shell-helpers"
 
 # Oh My Zsh
-git clone https://github.com/leonbeon/shell-helpers.git "$HOME/.oh-my-zsh/custom/shell-helpers"
+git clone https://github.com/leonbeon/shell-helpers.git "$HOME/.oh-my-zsh/custom/plugins/shell-helpers"
 ```
 
-After the framework is initialized, source the desired `docker/docker.sh`, `mux/mux.sh`, and `mnt/mnt.sh` files from its `custom/shell-helpers` directory.
+Add `shell-helpers` to the end of the framework's `plugins` array so its commands take precedence over conflicting aliases:
+
+```sh
+plugins=(git shell-helpers)
+```
 
 Install Docker with the modern Compose plugin, tmux, and SSHFS separately as needed.
 
