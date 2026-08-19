@@ -186,26 +186,29 @@ _mnt_shortcut_state() {
 }
 
 _mnt_list_shortcuts() {
-  local records name host remote_path mount_point state
+  local filter heading records name host remote_path mount_point state shown
+  filter="$1"
+  heading="$2"
   _mnt_require findmnt || return 1
   records=$(_mnt_read_shortcuts) || return 1
 
-  printf 'Shortcuts:\n'
-  if [ -z "$records" ]; then
-    printf '  (none)\n'
-    return 0
-  fi
-
+  printf '%s\n' "$heading"
+  shown=0
   while IFS= read -r name; do
     [ -n "$name" ] || continue
     IFS= read -r host || return 1
     IFS= read -r remote_path || return 1
     IFS= read -r mount_point || return 1
     state=$(_mnt_shortcut_state "$host" "$remote_path" "$mount_point") || return 1
-    printf '  %-16s %-8s %s:%s -> %s\n' "$name" "$state" "$host" "$remote_path" "$mount_point"
+    if [ -z "$filter" ] || [ "$state" = "$filter" ]; then
+      printf '  %-16s %-8s %s:%s -> %s\n' "$name" "$state" "$host" "$remote_path" "$mount_point"
+      shown=$((shown + 1))
+    fi
   done <<EOF
 $records
 EOF
+
+  [ "$shown" -gt 0 ] || printf '  (none)\n'
 }
 
 _mnt_usage() {
@@ -224,7 +227,7 @@ mnt() {
   if [ "$#" -eq 0 ]; then
     _mnt_usage
     printf '\n'
-    _mnt_list_shortcuts
+    _mnt_list_shortcuts '' 'Shortcuts:'
     return 1
   fi
 
@@ -283,19 +286,7 @@ umnt() {
 
   if [ "$#" -eq 0 ]; then
     _umnt_usage
-    printf 'Active SSHFS mounts:\n'
-    if _mnt_require findmnt; then
-      resolved=$(command findmnt -n -t fuse.sshfs -o SOURCE,TARGET 2>/dev/null) || resolved=
-      if [ -n "$resolved" ]; then
-        while IFS= read -r target; do
-          printf '  %s\n' "$target"
-        done <<EOF
-$resolved
-EOF
-      else
-        printf '  (none)\n'
-      fi
-    fi
+    _mnt_list_shortcuts active 'Active shortcuts:'
     return 1
   fi
   if [ "$#" -ne 1 ]; then
