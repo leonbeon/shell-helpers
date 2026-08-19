@@ -1,6 +1,6 @@
 # Docker and Docker Compose helpers for interactive Bash and Zsh shells
 
-for _docker_public_name in dlogs dbuild drecreate drm dexec drebuild; do
+for _docker_public_name in dlogs dbuild drecreate dup drm dexec drebuild; do
   unalias "$_docker_public_name" 2>/dev/null || :
 done
 unset _docker_public_name
@@ -301,6 +301,19 @@ drecreate() {
   compose_file=${target%%$'\n'*}
   service=${target#*$'\n'}
   _docker_compose "$compose_file" up -d --force-recreate "$service"
+}
+
+dup() {
+  local target compose_file service
+  if [ "$#" -gt 1 ]; then
+    _docker_error "usage: dup [service]"
+    return 1
+  fi
+
+  target=$(_docker_compose_target mutating "${1-}") || return 1
+  compose_file=${target%%$'\n'*}
+  service=${target#*$'\n'}
+  _docker_compose "$compose_file" up -d "$service"
 }
 
 drm() {
