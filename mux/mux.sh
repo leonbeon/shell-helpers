@@ -11,7 +11,8 @@ _mux_usage() {
     'Usage: mux [session_name]' \
     '       mux --refresh <session_name>' \
     '       mux --ls' \
-    '       mux --kill <session_name>'
+    '       mux --kill <session_name>' \
+    '       mux --help'
 }
 
 _mux_require_tmux() {
@@ -23,6 +24,15 @@ _mux_require_tmux() {
 
 mux() {
   local mode name current_dir
+
+  if [ "${1-}" = --help ]; then
+    if [ "$#" -ne 1 ]; then
+      _mux_usage >&2
+      return 1
+    fi
+    _mux_usage
+    return 0
+  fi
 
   _mux_require_tmux || return 1
   if [ -n "${TMUX-}" ]; then
