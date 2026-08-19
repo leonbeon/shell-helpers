@@ -224,6 +224,11 @@ _umnt_usage() {
 mnt() {
   local shortcut host remote_path mount_point resolved status unmount_target
 
+  if [ "$#" -eq 1 ] && [ "$1" = --help ]; then
+    _mnt_usage
+    return 0
+  fi
+
   if [ "$#" -eq 0 ]; then
     _mnt_usage
     printf '\n'
@@ -283,6 +288,11 @@ mnt() {
 
 umnt() {
   local target resolved status filesystem unmounter
+
+  if [ "$#" -eq 1 ] && [ "$1" = --help ]; then
+    _umnt_usage
+    return 0
+  fi
 
   if [ "$#" -eq 0 ]; then
     _umnt_usage
