@@ -9,7 +9,9 @@ _mux_error() {
 _mux_usage() {
   printf '%s\n' \
     'Usage: mux [session_name]' \
-    '   or: mux refresh [session_name]'
+    '       mux --refresh <session_name>' \
+    '       mux --ls' \
+    '       mux --kill <session_name>'
 }
 
 _mux_require_tmux() {
@@ -28,26 +30,51 @@ mux() {
     return 1
   fi
 
+  case "${1-}" in
+    --refresh)
+      if [ "$#" -ne 2 ] || [ -z "$2" ]; then
+        _mux_usage >&2
+        return 1
+      fi
+      mode=refresh
+      name="$2"
+      ;;
+    --ls)
+      if [ "$#" -ne 1 ]; then
+        _mux_usage >&2
+        return 1
+      fi
+      command tmux list-sessions
+      return
+      ;;
+    --kill)
+      if [ "$#" -ne 2 ] || [ -z "$2" ]; then
+        _mux_usage >&2
+        return 1
+      fi
+      command tmux kill-session -t "$2"
+      return
+      ;;
+    -*)
+      _mux_error "unknown option: $1"
+      _mux_usage >&2
+      return 1
+      ;;
+    *)
+      if [ "$#" -gt 1 ]; then
+        _mux_usage >&2
+        return 1
+      fi
+      mode=attach
+      name="${1-}"
+      ;;
+  esac
+
   current_dir=$(pwd -P) || {
     _mux_error "cannot determine the current directory"
     return 1
   }
-
-  mode=attach
-  if [ "${1-}" = refresh ]; then
-    mode=refresh
-    if [ "$#" -gt 2 ]; then
-      _mux_usage >&2
-      return 1
-    fi
-    name="${2:-$(basename -- "$current_dir")}"
-  else
-    if [ "$#" -gt 1 ]; then
-      _mux_usage >&2
-      return 1
-    fi
-    name="${1:-$(basename -- "$current_dir")}"
-  fi
+  [ -n "$name" ] || name=$(basename -- "$current_dir") || return 1
 
   if [ "$mode" = refresh ]; then
     if command tmux has-session -t "$name" 2>/dev/null; then
