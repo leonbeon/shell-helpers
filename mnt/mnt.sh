@@ -16,6 +16,47 @@ _mnt_require() {
   fi
 }
 
+_mnt_require_allow_other() {
+  if [ ! -r /etc/fuse.conf ] ||
+    ! command grep -Eq '^[[:space:]]*user_allow_other[[:space:]]*(#.*)?$' /etc/fuse.conf; then
+    _mnt_error "allow_other requires an enabled 'user_allow_other' line in /etc/fuse.conf"
+    return 1
+  fi
+}
+
+_mnt_prepare_mount_point() {
+  local mount_point parent user
+  mount_point="$1"
+  user=$(id -un) || return 1
+
+  if [ -e "$mount_point" ] && [ ! -d "$mount_point" ]; then
+    _mnt_error "mount point is not a directory: $mount_point"
+    return 1
+  fi
+
+  if [ ! -e "$mount_point" ]; then
+    parent=$(dirname -- "$mount_point") || return 1
+    while [ ! -e "$parent" ]; do
+      [ "$parent" = / ] && break
+      parent=$(dirname -- "$parent") || return 1
+    done
+    if [ ! -d "$parent" ] || [ ! -w "$parent" ] || [ ! -x "$parent" ]; then
+      _mnt_error "cannot create mount point: $mount_point"
+      _mnt_error "create it and grant user '$user' access before retrying"
+      return 1
+    fi
+    command mkdir -p -- "$mount_point" || {
+      _mnt_error "failed to create mount point: $mount_point"
+      return 1
+    }
+  fi
+
+  if [ ! -w "$mount_point" ] || [ ! -x "$mount_point" ]; then
+    _mnt_error "user '$user' needs write access to mount point: $mount_point"
+    return 1
+  fi
+}
+
 _mnt_config_file() {
   if [ -n "${XDG_CONFIG_HOME-}" ]; then
     printf '%s/mnt/mnt.conf\n' "$XDG_CONFIG_HOME"
@@ -215,12 +256,14 @@ mnt() {
 
   _mnt_require sshfs || return 1
   _mnt_require findmnt || return 1
+  _mnt_require grep || return 1
   if command findmnt -n -M "$mount_point" >/dev/null 2>&1; then
     _mnt_error "mount point is already in use: $mount_point"
     return 1
   fi
+  _mnt_require_allow_other || return 1
+  _mnt_prepare_mount_point "$mount_point" || return 1
 
-  command mkdir -p -- "$mount_point" || return 1
   if ! command sshfs "$host:$remote_path" "$mount_point" \
     -o "allow_other,uid=$(id -u),gid=$(id -g)"; then
     return 1
