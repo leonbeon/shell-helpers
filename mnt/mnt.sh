@@ -222,7 +222,7 @@ _umnt_usage() {
 }
 
 mnt() {
-  local shortcut host remote_path mount_point resolved status unmount_target
+  local shortcut host remote_path mount_point resolved rc unmount_target
 
   if [ "$#" -eq 1 ] && [ "$1" = --help ]; then
     _mnt_usage
@@ -246,8 +246,8 @@ mnt() {
         remote_path=${resolved%%$'\n'*}
         mount_point=${resolved#*$'\n'}
       else
-        status=$?
-        [ "$status" -eq 2 ] && _mnt_error "unknown shortcut: $shortcut"
+        rc=$?
+        [ "$rc" -eq 2 ] && _mnt_error "unknown shortcut: $shortcut"
         return 1
       fi
       ;;
@@ -287,7 +287,7 @@ mnt() {
 }
 
 umnt() {
-  local target resolved status filesystem unmounter
+  local target resolved rc filesystem unmounter
 
   if [ "$#" -eq 1 ] && [ "$1" = --help ]; then
     _umnt_usage
@@ -311,8 +311,8 @@ umnt() {
       if resolved=$(_mnt_find_shortcut "$target"); then
         target=${resolved##*$'\n'}
       else
-        status=$?
-        [ "$status" -eq 2 ] || return 1
+        rc=$?
+        [ "$rc" -eq 2 ] || return 1
       fi
       ;;
   esac
