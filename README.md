@@ -70,12 +70,15 @@ Shortcuts live in `${XDG_CONFIG_HOME:-$HOME/.config}/mnt/mnt.conf`:
 host = user@example.com
 remote_path = /srv/documents
 mount_point = /mnt/remote_documents
+windows_drive = any
 
 [media]
 host = media-server
 remote_path = /srv/media
 mount_point = /mnt/remote_media
 ```
+
+Add windows_drive = <letter> or windows_drive = any to a shortcut to also map it as a Windows drive in WSL (see below).  
 
 For mount points under `/mnt`, create the directory once and grant your user write access:
 
@@ -88,13 +91,59 @@ Uncomment or add `user_allow_other` in `/etc/fuse.conf` because the helper uses 
 
 | Command | Explanation | Example |
 | --- | --- | --- |
-| `mnt` | Lists configured shortcuts and their state. | `mnt` |
-| `mnt <shortcut>` | Mounts a configured SSHFS shortcut. | `mnt documents` |
+| `mnt` | Lists configured shortcuts and their state and their Windows drives. | `mnt` |
+| `mnt <shortcut>` | Mounts a configured SSHFS shortcut and maps `windows_drive` in WSL (if provided). | `mnt documents` |
 | `mnt <host> <remote_path> <mount_point>` | Mounts an explicit SSHFS source. | `mnt server /srv/documents /mnt/documents` |
 | `mnt --help` | Prints the mount command summary. | `mnt --help` |
-| `umnt` | Lists active configured shortcuts. | `umnt` |
-| `umnt <shortcut_or_mount_point>` | Unmounts an SSHFS mount by shortcut or path. | `umnt documents` |
+| `umnt` | Lists active configured shortcuts, including leftover Windows drives if applicable. | `umnt` |
+| `umnt <shortcut_or_mount_point>` | Unmounts an SSHFS mount by shortcut or path, and removes associated Windows drives. | `umnt documents` |
 | `umnt --help` | Prints the unmount command summary. | `umnt --help` |
+
+### Windows drives in WSL
+
+When browsing a mounted drive in Explorer via WSL, previews and thumbnails are slow. That's why, using the `windows_drive` option in the config file, mount points are also mapped as Windows network drives using [SSHFS-Win](https://github.com/winfsp/sshfs-win). How this works:  
+
+- `mnt` maps the drive after mounting, or maps only the drive when the shortcut is already mounted. If mapping fails, the WSL mount is kept and a warning is printed.
+- `umnt` removes the drive after unmounting, including a drive left over without its WSL mount. If the WSL mount is busy, both stay.
+- `windows_drive = any` picks the first free letter from `Z:` downwards.
+- Drives are not restored after a reboot. The `net use` persistence default is left unchanged.
+
+#### One-time setup
+
+One-time setup, replacing `<you>` with your Windows user name:
+
+1. Install [WinFsp](https://winfsp.dev) and SSHFS-Win.
+2. SSHFS-Win can neither use your SSH agent nor ask for passphrases, so create a passphrase-less key in your Windows profile:
+
+```sh
+ssh-keygen -t ed25519 -N '' -C sshfs-win -f /mnt/c/Users/<you>/.ssh/id_sshfs
+```
+
+3. Authorize the key on every remote account you map, restricted to SFTP so it cannot open a shell. The `sftp-server` path depends on the server's distribution (see
+`Subsystem` in its `sshd_config`):
+
+```sh
+printf 'restrict,command="/usr/lib/openssh/sftp-server" %s\n' "$(cat /mnt/c/Users/<you>/.ssh/id_sshfs.pub)" |
+ssh <host> 'cat >> ~/.ssh/authorized_keys'
+```
+
+4. Register the `sshfs.mnt` SSHFS-Win service from an elevated command prompt (interactively, not as a batch file):
+
+```bat
+set K=HKLM\SOFTWARE\WOW6432Node\WinFsp\Services\sshfs.mnt
+reg add %K% /v Executable    /t REG_SZ    /d "C:\Program Files\SSHFS-Win\bin\sshfs-win.exe" /f
+reg add %K% /v CommandLine   /t REG_SZ    /d "svc %1 %2 %U -oIdentityFile=/cygdrive/c/Users/<you>/.ssh/id_sshfs -oBatchMode=yes" /f
+reg add %K% /v Security      /t REG_SZ    /d "D:P(A;;RPWPLC;;;WD)" /f
+reg add %K% /v JobControl    /t REG_DWORD /d 1 /f
+reg add %K% /v Credentials   /t REG_DWORD /d 0 /f
+reg add %K% /v sshfs.rootdir /t REG_DWORD /d 1 /f
+```
+
+`BatchMode=yes` stops SSH from waiting for the passphrase of `id_rsa`, which SSHFS-Win always tries first.
+
+Drives are mapped as `\\sshfs.mnt\user@host[!port]\remote\path`. The user, host, and port come from `ssh -G`, so host aliases from your WSL SSH config work, but other
+settings such as `IdentityFile` do not apply. Hosts that need `ProxyJump` or `ProxyCommand` and relative `remote_path` values are not supported. SSHFS-Win disables host
+key checking, which is another reason to restrict the key to SFTP.
 
 ## Note on AI use
 
