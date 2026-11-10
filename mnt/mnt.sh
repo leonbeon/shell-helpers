@@ -399,6 +399,7 @@ EOF
 
 _mnt_list_shortcuts() {
   local filter heading records name host remote_path mount_point windows_drive state shown
+  local win mappings unc mapped windows
   filter="$1"
   heading="$2"
   _mnt_require findmnt || return 1
@@ -406,6 +407,7 @@ _mnt_list_shortcuts() {
 
   printf '%s\n' "$heading"
   shown=0
+  win=unknown
   while IFS= read -r name; do
     [ -n "$name" ] || continue
     IFS= read -r host || return 1
@@ -413,8 +415,34 @@ _mnt_list_shortcuts() {
     IFS= read -r mount_point || return 1
     IFS= read -r windows_drive || return 1
     state=$(_mnt_shortcut_state "$host" "$remote_path" "$mount_point") || return 1
-    if [ -z "$filter" ] || [ "$state" = "$filter" ]; then
-      printf '  %-16s %-8s %s:%s -> %s\n' "$name" "$state" "$host" "$remote_path" "$mount_point"
+
+    windows=
+    mapped=
+    if [ "$windows_drive" != - ] && [ "$win" = unknown ]; then
+      if _mnt_win_ready 2>/dev/null; then
+        win=yes
+        mappings=$(_mnt_win_run net.exe use 2>/dev/null | command tr -d '\r')
+      else
+        win=no
+      fi
+    fi
+    if [ "$windows_drive" != - ] && [ "$win" = yes ]; then
+      if unc=$(_mnt_win_unc "$host" "$remote_path" 2>/dev/null); then
+        mapped=$(printf '%s\n' "$mappings" | _mnt_win_mapped_drives "$unc" | command head -n 1)
+        if [ -n "$mapped" ]; then
+          windows="  [$mapped mapped]"
+        else
+          windows="  [$windows_drive not mapped]"
+        fi
+      else
+        windows="  [$windows_drive unsupported]"
+      fi
+    fi
+
+    # A leftover Windows drive still needs umnt, so it counts as active
+    if [ -z "$filter" ] || [ "$state" = "$filter" ] ||
+      { [ "$filter" = active ] && [ -n "$mapped" ]; }; then
+      printf '  %-16s %-8s %s:%s -> %s%s\n' "$name" "$state" "$host" "$remote_path" "$mount_point" "$windows"
       shown=$((shown + 1))
     fi
   done <<EOF
