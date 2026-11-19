@@ -60,8 +60,7 @@ I usually use this to manage a tmux session per project folder.
 | `mux --kill-all` | Kills all sessions listed by `mux --ls`, leaving other tmux sessions alone. | `mux --kill-all` |
 | `mux --help` | Prints the command summary. | `mux --help` |
 
-Sessions are marked when mux creates them. Attaching to an existing session does not mark it; `--refresh` recreates and marks it.
-Sessions created by older versions are untracked and excluded from `--ls` and `--kill-all`.
+Sessions are marked when mux creates them, so `--ls` and `--kill-all` only track sessions created by `mux`.
 
 ## `mnt`
 
