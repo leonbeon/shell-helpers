@@ -12,6 +12,7 @@ _mux_usage() {
     '       mux --refresh <session_name>' \
     '       mux --ls' \
     '       mux --kill <session_name>' \
+    '       mux --kill-all' \
     '       mux --help'
 }
 
@@ -23,7 +24,7 @@ _mux_require_tmux() {
 }
 
 mux() {
-  local mode name current_dir
+  local mode name current_dir session_ids session_id
 
   if [ "${1-}" = --help ]; then
     if [ "$#" -ne 1 ]; then
@@ -54,7 +55,7 @@ mux() {
         _mux_usage >&2
         return 1
       fi
-      command tmux list-sessions
+      command tmux list-sessions -f '#{==:#{@mux_created},1}'
       return
       ;;
     --kill)
@@ -64,6 +65,20 @@ mux() {
       fi
       command tmux kill-session -t "$2"
       return
+      ;;
+    --kill-all)
+      if [ "$#" -ne 1 ]; then
+        _mux_usage >&2
+        return 1
+      fi
+      session_ids=$(command tmux list-sessions -f '#{==:#{@mux_created},1}' -F '#{session_id}') || return 1
+      while IFS= read -r session_id; do
+        [ -n "$session_id" ] || continue
+        command tmux kill-session -t "$session_id" || return 1
+      done <<EOF
+$session_ids
+EOF
+      return 0
       ;;
     -*)
       _mux_error "unknown option: $1"
@@ -87,11 +102,15 @@ mux() {
   [ -n "$name" ] || name=$(basename -- "$current_dir") || return 1
 
   if [ "$mode" = refresh ]; then
-    if command tmux has-session -t "$name" 2>/dev/null; then
-      command tmux kill-session -t "$name" || return 1
+    if command tmux has-session -t "=$name" 2>/dev/null; then
+      command tmux kill-session -t "=$name" || return 1
     fi
-    command tmux new-session -s "$name" -c "$current_dir"
-  else
-    command tmux new-session -A -s "$name" -c "$current_dir"
+  elif command tmux has-session -t "=$name" 2>/dev/null; then
+    command tmux attach-session -t "=$name"
+    return
   fi
+
+  command tmux new-session -d -s "$name" -c "$current_dir" \; \
+    set-option -t "$name" @mux_created 1 \; \
+    attach-session -t "=$name"
 }

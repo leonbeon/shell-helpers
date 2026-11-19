@@ -55,9 +55,13 @@ I usually use this to manage a tmux session per project folder.
 | --- | --- | --- |
 | `mux [session_name]` | Attaches to or creates a session, defaulting to the current directory name. | `mux website` |
 | `mux --refresh <session_name>` | Recreates or creates a named session in the current directory, which is useful for reloading shell environment variables. | `mux --refresh website` |
-| `mux --ls` | Lists active tmux sessions. | `mux --ls` |
+| `mux --ls` | Lists active sessions created by mux. | `mux --ls` |
 | `mux --kill <session_name>` | Kills a named session. | `mux --kill website` |
+| `mux --kill-all` | Kills all sessions listed by `mux --ls`, leaving other tmux sessions alone. | `mux --kill-all` |
 | `mux --help` | Prints the command summary. | `mux --help` |
+
+Sessions are marked when mux creates them. Attaching to an existing session does not mark it; `--refresh` recreates and marks it.
+Sessions created by older versions are untracked and excluded from `--ls` and `--kill-all`.
 
 ## `mnt`
 
